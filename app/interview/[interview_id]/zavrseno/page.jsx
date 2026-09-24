@@ -1,216 +1,41 @@
-"use client"
-import React, { useEffect, useRef } from 'react';
-
-import { Home, ArrowRight, Send } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-
-
+import React from 'react';
+import { CheckCircle2, Clock, Send } from 'lucide-react';
 
 const InterviewComplete = () => {
-
-    const router = useRouter();
-    useEffect(() => {
-        toast('Preusmjeravanje na stranicu...')
-        setTimeout(() => {
-            router.replace('/dashboard')
-        }, 3000)
-    }, [])
-
     return (
+        <div className="flex flex-col min-h-[calc(100vh-72px)]">
+            <main className="flex-grow flex items-center justify-center px-5 py-10">
+                <div className="w-full max-w-xl rounded-xl border bg-white p-8 md:p-10 shadow-sm text-center">
+                    <CheckCircle2 className="mx-auto h-16 w-16 text-green-500" />
 
-        <div className="bg-midnight bg-white text-black font-sans antialiased flex flex-col min-h-screen">
+                    <h1 className="mt-4 text-3xl font-bold">Intervju je završen!</h1>
+                    <p className="mt-2 text-gray-500">
+                        Hvala vam što ste učestvovali u intervjuu.
+                    </p>
 
-
-
-            {/* Main Content */}
-
-            <main className="flex-grow flex flex-col items-center justify-center space-y-3 py-6">
-
-                {/* Success Icon */}
-
-                <div className="rounded-full bg-green-500 p-4 ">
-
-                    <svg
-
-                        xmlns="http://www.w3.org/2000/svg"
-
-                        className="h-12 w-12 text-black"
-
-                        fill="none"
-
-                        viewBox="0 0 24 24"
-
-                        stroke="currentColor"
-
-                    >
-
-                        <path
-
-                            strokeLinecap="round"
-
-                            strokeLinejoin="round"
-
-                            strokeWidth="2"
-
-                            d="M5 13l4 4L19 7"
-
-                        />
-
-                    </svg>
-
-                </div>
-
-
-
-                {/* Heading */}
-
-                <h1 className="text-4xl font-bold text-center">Interview Završen!</h1>
-
-
-
-                {/* Subheading */}
-
-                <p className="text-lg text-gray-400 text-center">
-
-                    Hvala što se prisustvovali ovom Interview-u
-
-                </p>
-
-
-
-                {/* Image */}
-
-                <div className="rounded-xl overflow-hidden shadow-lg">
-
-                    <img
-
-                        src="https://static.vecteezy.com/system/resources/previews/003/032/078/non_2x/job-interview-conversation-hr-manager-and-job-candidate-vector.jpg"
-
-                        alt="Interview Illustration"
-
-                        className="w-full h-auto object-cover max-w-4xl"
-
-                        style={{
-
-                            backgroundImage: 'url(https://static.vecteezy.com/system/resources/previews/003/032/078/non_2x/job-interview-conversation-hr-manager-and-job-candidate-vector.jpg)',
-
-                            backgroundSize: 'cover',
-
-                            backgroundPosition: 'center',
-
-                            width: '800px',
-
-                            height: '280px',
-
-                        }}
-
-                    />
-
-                </div>
-
-
-
-                {/* Next Steps */}
-
-                <div className="bg-midnightLighter rounded-xl p-8 shadow-md w-full max-w-xl space-y-4">
-
-                    <div className="flex items-center justify-center rounded-full 
-                    bg-primary w-12 h-12 mx-auto">
-
-                        <Send className='text-white' />
-
+                    <div className="mt-8 rounded-xl bg-primary/5 border border-primary/20 p-6">
+                        <div className="flex items-center justify-center rounded-full bg-primary w-12 h-12 mx-auto">
+                            <Send className="h-5 w-5 text-white" />
+                        </div>
+                        <h2 className="mt-3 text-xl font-semibold">Šta je sljedeće?</h2>
+                        <p className="mt-1 text-gray-600">
+                            Vaši odgovori su poslani poslodavcu na pregled.
+                        </p>
+                        <p className="mt-3 text-sm text-gray-500 flex items-center justify-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            Odgovor očekujte u roku od 2 do 3 radna dana.
+                        </p>
                     </div>
 
-
-
-                    <h2 className="text-2xl font-semibold text-center">Šta je sljedeće?</h2>
-
-                    <p className="text-gray-400 text-center">
-
-                        Rezultate Interviewa će te dobiti uskoro.
-
-                    </p>
-
-                    <p className="text-gray-400 text-sm text-center">
-
-                        <svg
-
-                            xmlns="http://www.w3.org/2000/svg"
-
-                            className="h-4 w-4 inline-block mr-1"
-
-                            fill="none"
-
-                            viewBox="0 0 24 24"
-
-                            stroke="currentColor"
-
-                        >
-
-                            <path
-
-                                strokeLinecap="round"
-
-                                strokeLinejoin="round"
-
-                                strokeWidth="2"
-
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-
-                            />
-
-                        </svg>
-
-                        Odgovor u toku 2 do 3 radna dana
-
-                    </p>
-
+                    <p className="mt-6 text-sm text-gray-400">Sada možete zatvoriti ovu stranicu.</p>
                 </div>
-
-
-
-                {/* Buttons */}
-
-                {/* <div className="flex space-x-4">
-
-                    <button className="bg-midnightLightest text-gray-300 hover:text-black rounded-lg py-3 px-6 flex items-center space-x-2 transition duration-300 ease-in-out">
-
-                        <Home className="h-5 w-5" />
-
-                        <span>Return to Homepage</span>
-
-                    </button>
-
-                    <button className="bg-electricBlue hover:bg-electricBlueDark text-black rounded-lg py-3 px-6 flex items-center space-x-2 transition duration-300 ease-in-out">
-
-                        <span>View Other Opportunities</span>
-
-                        <ArrowRight className="h-5 w-5" />
-
-                    </button>
-
-                </div> */}
-
             </main>
 
-
-
-            {/* Footer */}
-
-            <footer className="bg-midnightLighter text-gray-400 text-center py-4">
-
-                <p>&copy; Elvis Hodžić</p>
-
+            <footer className="text-gray-400 text-center py-4 text-sm">
+                <p>&copy; {new Date().getFullYear()} InterPrep · Elvis Hodžić</p>
             </footer>
-
         </div>
-
     );
-
 };
 
-
-
 export default InterviewComplete;
-

@@ -4,7 +4,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, PhoneCall, ListChecks } from "lucide-react";
+import { PlusCircle, Users, ListChecks } from "lucide-react";
 
 export default function Banner() {
   return (
@@ -27,22 +27,22 @@ export default function Banner() {
           Brže do boljih intervjua i kandidata
         </h1>
         <p className="mt-2 max-w-2xl text-slate-700">
-          Kreiraj intervjue, organizuj telefonske razgovore i upravljaj
-          kandidatima − sve na jednom mjestu.
+          Kreiraj AI intervjue, podijeli link s kandidatima i prati njihove
+          rezultate — sve na jednom mjestu.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-3">
           <Link href="/dashboard/kreiraj-interview">
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
+            <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
               Kreiraj intervju
             </Button>
           </Link>
 
-          <Link href="/dashboard/telefonski-intervju">
+          <Link href="/zakazani-interviewi">
             <Button variant="secondary" className="bg-violet-600/10 text-violet-800 hover:bg-violet-600/20">
-              <PhoneCall className="mr-2 h-4 w-4" />
-              Telefonski intervju
+              <Users className="mr-2 h-4 w-4" />
+              Rezultati kandidata
             </Button>
           </Link>
 

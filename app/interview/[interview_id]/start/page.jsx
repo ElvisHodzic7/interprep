@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { supabase } from "@/services/supabaseClient";
+import AlertConfirmation from "./_components/AlertConfirmation";
+
+const formatVrijeme = (sekunde) => {
+  const m = String(Math.floor(sekunde / 60)).padStart(2, "0");
+  const s = String(sekunde % 60).padStart(2, "0");
+  return `${m}:${s}`;
+};
 
 function StartInterview() {
   const { interviewInfo } = useContext(InterviewDataContext);
@@ -18,12 +25,29 @@ function StartInterview() {
   const callActiveRef = useRef(false);
   const conversationRef = useRef(""); // posljednja konverzacija
   const finalizedRef = useRef(false); // da finalizaciju pokrenemo SAMO jednom
+  // Vapi listeneri se registruju jednom, pa im trebaju svježi podaci preko ref-a
+  const interviewInfoRef = useRef(interviewInfo);
+  interviewInfoRef.current = interviewInfo;
 
   const { interview_id } = useParams();
   const router = useRouter();
 
   const [activeUser, setActiveUser] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [callActive, setCallActive] = useState(false);
+  const [sekunde, setSekunde] = useState(0);
+
+  // Bez podataka o kandidatu (npr. refresh stranice) vrati na stranicu za prijavu
+  useEffect(() => {
+    if (!interviewInfo) router.replace(`/interview/${interview_id}`);
+  }, [interviewInfo, interview_id, router]);
+
+  // Tajmer trajanja poziva
+  useEffect(() => {
+    if (!callActive) return;
+    const id = setInterval(() => setSekunde((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [callActive]);
 
   // ========== INIT VAPI JEDNOM ==========
   useEffect(() => {
@@ -48,6 +72,7 @@ function StartInterview() {
 
   const handleCallStart = () => {
     callActiveRef.current = true;
+    setCallActive(true);
     toast("Poziv spojen…");
   };
 
@@ -56,7 +81,8 @@ function StartInterview() {
 
   const handleCallEnd = () => {
     callActiveRef.current = false;
-    toast("Poziv završio.");
+    setCallActive(false);
+    toast("Poziv je završen.");
     finalizeOnce(); // pokreni finalizaciju čim SDK javi kraj
   };
 
@@ -85,27 +111,32 @@ function StartInterview() {
     if (!interviewInfo || !vapiRef.current) return;
     if (callActiveRef.current) return; // već aktivno
 
-    const questionList = (interviewInfo?.interviewData?.questionList ?? [])
+    const questions = (interviewInfo?.interviewData?.questionList ?? [])
       .map((q) => q?.question)
-      .filter(Boolean)
-      .join(", ");
+      .filter(Boolean);
+    const questionList = questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
 
     const assistantOptions = {
-      name: "AI Interviewer",
-      firstMessage: `Greetings ${interviewInfo?.userName}, are you ready for your interview for the position of ${interviewInfo?.interviewData?.jobPosition}?`,
-      transcriber: { provider: "deepgram", model: "nova-3", language: "en-US" },
-      voice: { provider: "11labs", voiceId: "0jvpZ98RZwx5FBOSZAc3" },
+      name: "AI intervjuer",
+      firstMessage: `Zdravo ${interviewInfo?.userName}, jeste li spremni za intervju za poziciju ${interviewInfo?.interviewData?.jobPosition}?`,
+      // Azure podržava bosanski (bs-BA); Deepgram ga ne podržava
+      transcriber: { provider: "azure", language: "bs-BA" },
+      voice: { provider: "11labs", voiceId: "0jvpZ98RZwx5FBOSZAc3", model: "eleven_multilingual_v2" },
       model: {
         provider: "openai",
-        model: "gpt-4",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
             content: `
-You are an AI voice assistant conducting interviews.
-Ask one question at a time. Questions: ${questionList}
-If the candidate struggles, rephrase or give a hint.
-Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short summary.
+Ti si AI glasovni asistent koji vodi intervju za posao.
+VAŽNO: Razgovaraj ISKLJUČIVO na bosanskom jeziku, čak i ako kandidat pređe na drugi jezik.
+Postavljaj jedno po jedno pitanje i sačekaj odgovor prije sljedećeg.
+Pitanja:
+${questionList}
+Ako se kandidat muči, preformuliši pitanje ili daj kratak nagovještaj.
+Budi ljubazan, sažet i drži se teme.
+Kada postaviš svih ${questions.length} pitanja, zahvali se kandidatu, ukratko rezimiraj razgovor i reci da će rezultate dobiti uskoro.
 `.trim(),
           },
         ],
@@ -153,8 +184,8 @@ Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short
       if (!conversation) {
         await supabase.from("interview-feedback").insert([
           {
-            userName: interviewInfo?.userName,
-            userEmail: interviewInfo?.userEmail,
+            userName: interviewInfoRef.current?.userName,
+            userEmail: interviewInfoRef.current?.userEmail,
             interview_id,
             feedback: { error: "no_conversation" },
             recommended: false,
@@ -208,17 +239,17 @@ Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short
       // 4) upis u bazu
       const { error } = await supabase.from("interview-feedback").insert([
         {
-          userName: interviewInfo?.userName,
-          userEmail: interviewInfo?.userEmail,
+          userName: interviewInfoRef.current?.userName,
+          userEmail: interviewInfoRef.current?.userEmail,
           interview_id,
           feedback: parsed,
-          recommended: false,
+          recommended: parsed?.recommendation === true,
         },
       ]);
 
       if (error) {
         console.error("Supabase insert error:", error);
-        toast.error("Greška pri spremanju feedbacka.");
+        toast.error("Greška pri spremanju rezultata intervjua.");
       }
 
       // 5) redirect
@@ -232,8 +263,8 @@ Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short
       try {
         await supabase.from("interview-feedback").insert([
           {
-            userName: interviewInfo?.userName,
-            userEmail: interviewInfo?.userEmail,
+            userName: interviewInfoRef.current?.userName,
+            userEmail: interviewInfoRef.current?.userEmail,
             interview_id,
             feedback: {
               fallback: true,
@@ -251,19 +282,27 @@ Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short
 
   // ========== RENDER ==========
   return (
-    <div className="p-20 lg:px-48 xl:px-56">
-      <h2 className="font-bold text-xl flex justify-between">
-        AI Interview
-        <span className="flex gap-2 items-center">
-          <Timer />
+    <div className="px-5 py-10 md:px-20 lg:px-48 xl:px-56">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-bold text-xl">AI intervju</h2>
+          {interviewInfo?.interviewData?.jobPosition && (
+            <p className="text-sm text-gray-500">
+              Pozicija: {interviewInfo.interviewData.jobPosition}
+            </p>
+          )}
+        </div>
+        <span className="flex gap-2 items-center rounded-full border bg-white px-3 py-1 font-mono text-sm">
+          <Timer className="h-4 w-4 text-primary" />
+          {formatVrijeme(sekunde)}
         </span>
-      </h2>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-5">
-        <div className="bg-white h-[400px] rounded-lg border flex relative flex-col gap-3 items-center justify-center">
+        <div className="bg-white h-[300px] md:h-[400px] rounded-xl border shadow-sm flex relative flex-col gap-3 items-center justify-center">
           <div className="relative">
-            {!activeUser && (
-              <span className="absolute inset-0 rounded-full bg-blue-500 opacity-75 animate-ping" />
+            {callActive && !activeUser && (
+              <span className="absolute inset-0 rounded-full bg-primary opacity-75 animate-ping" />
             )}
             <Image
               src={"/ai.png"}
@@ -273,37 +312,42 @@ Keep it friendly, concise, and on-topic. Wrap up after ~6 questions with a short
               className="w-[60px] h-[60px] rounded-full object-cover"
             />
           </div>
-          <h2>InterPrep</h2>
+          <h2 className="font-medium">AI intervjuer</h2>
         </div>
 
-        <div className="bg-white h-[400px] rounded-lg border flex flex-col gap-3 items-center justify-center">
+        <div className="bg-white h-[300px] md:h-[400px] rounded-xl border shadow-sm flex flex-col gap-3 items-center justify-center">
           <div className="relative">
-            {activeUser && (
-              <span className="absolute inset-0 rounded-full bg-blue-500 opacity-75 animate-ping" />
+            {callActive && activeUser && (
+              <span className="absolute inset-0 rounded-full bg-primary opacity-75 animate-ping" />
             )}
             <h2 className="text-2xl text-white bg-primary p-3 rounded-full px-5">
               {interviewInfo?.userName?.[0] || "?"}
             </h2>
           </div>
-          <h2>{interviewInfo?.userName}</h2>
+          <h2 className="font-medium">{interviewInfo?.userName}</h2>
         </div>
       </div>
 
       <div className="flex items-center gap-5 justify-center mt-7">
         <Mic className="h-12 w-12 p-3 bg-gray-500 text-white rounded-full" />
         {!loading ? (
-          <Phone
-            className="h-12 w-12 p-3 bg-red-500 text-white rounded-full cursor-pointer"
-            onClick={stopInterview}
-            title="Završi poziv"
-          />
+          <AlertConfirmation stopInterview={stopInterview}>
+            <Phone
+              className="h-12 w-12 p-3 bg-red-500 hover:bg-red-600 text-white rounded-full cursor-pointer"
+              aria-label="Završi intervju"
+            />
+          </AlertConfirmation>
         ) : (
           <Loader2Icon className="animate-spin" />
         )}
       </div>
 
       <h2 className="text-sm text-gray-400 text-center mt-5">
-        {callActiveRef.current ? "Interview u toku…" : "Poziv završen."}
+        {loading
+          ? "Obrađujem rezultate intervjua…"
+          : callActive
+            ? "Intervju je u toku…"
+            : "Povezivanje…"}
       </h2>
     </div>
   );

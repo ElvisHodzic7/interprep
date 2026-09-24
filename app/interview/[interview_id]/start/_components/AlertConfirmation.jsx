@@ -18,12 +18,12 @@ function AlertConfirmation({ children, stopInterview }) {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Da li ste sigurni?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Ova radnja se više ne može izmijeniti. Interview će se završiti.
+                        Intervju će se završiti i ova radnja se ne može poništiti.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Prekid</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => stopInterview()}>Nastavi</AlertDialogAction>
+                    <AlertDialogCancel>Odustani</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => stopInterview()}>Završi intervju</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

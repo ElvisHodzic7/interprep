@@ -31,7 +31,7 @@ export function AppSidebar() {
           <div className="flex items-center gap-3">
             <Image
               src={"/logo.png"}
-              alt="logo"
+              alt="InterPrep"
               width={160}
               height={60}
               className="w-[140px] select-none"
@@ -43,16 +43,9 @@ export function AppSidebar() {
           </div>
 
           <Link href={"/dashboard/kreiraj-interview"}>
-            <Button
-              className="
-                w-full mt-4
-                bg-gradient-to-r from-cyan-500 to-indigo-500
-                hover:from-cyan-400 hover:to-indigo-400
-                text-white border-0 shadow-lg shadow-cyan-500/30
-              "
-            >
+            <Button variant="brand" className="w-full mt-4">
               <Plus className="mr-2 h-4 w-4" />
-              Kreiraj novi Interview
+              Kreiraj novi intervju
             </Button>
           </Link>
         </div>

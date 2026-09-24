@@ -1,20 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/services/supabaseClient";
+import { prevediGresku } from "@/lib/prevodGresaka";
 import {
   Chrome,
   LogIn,
   UserPlus,
-  KeyRound,
   Mail,
   Lock,
   ArrowRight,
   ShieldCheck,
   RefreshCcw,
 } from "lucide-react";
+
+// Definisano izvan AuthPage da se input ne re-montira (i ne gubi fokus) na svaki unos
+const InputRow = ({ icon: Icon, ...props }) => (
+  <div className="group relative">
+    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 opacity-0 blur-xl transition-opacity duration-300 group-focus-within:opacity-100" />
+    <div className="relative flex items-center rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-slate-100 focus-within:ring-2 focus-within:ring-cyan-400/40">
+      <Icon className="mr-2 h-4 w-4 text-slate-300" />
+      <input
+        {...props}
+        className="w-full bg-transparent outline-none placeholder:text-slate-400"
+      />
+    </div>
+  </div>
+);
 
 const AuthPage = () => {
   const [mode, setMode] = useState("signin"); // "signin" | "signup" | "forgot"
@@ -41,7 +55,7 @@ const AuthPage = () => {
       provider: "google",
       options: { redirectTo: `${appUrl}/dashboard` },
     });
-    if (error) setErrorMsg(error.message);
+    if (error) setErrorMsg(prevediGresku(error.message));
     setLoading(false);
   };
 
@@ -56,7 +70,7 @@ const AuthPage = () => {
       options: { emailRedirectTo: `${appUrl}/dashboard` },
     });
 
-    if (error) setErrorMsg(error.message);
+    if (error) setErrorMsg(prevediGresku(error.message));
     else {
       setMessage(
         "Provjeri e-mail za verifikacijski link. Nakon potvrde bit ćeš preusmjeren/a."
@@ -76,7 +90,7 @@ const AuthPage = () => {
       password,
     });
 
-    if (error) setErrorMsg(error.message);
+    if (error) setErrorMsg(prevediGresku(error.message));
     else window.location.href = "/dashboard";
 
     setLoading(false);
@@ -91,23 +105,11 @@ const AuthPage = () => {
       redirectTo: `${appUrl}/auth/update-password`,
     });
 
-    if (error) setErrorMsg(error.message);
-    else setMessage("Poslali smo ti e-mail za reset lozinke. Provjeri inbox.");
+    if (error) setErrorMsg(prevediGresku(error.message));
+    else setMessage("Poslali smo ti e-mail s linkom za promjenu lozinke. Provjeri inbox.");
     setLoading(false);
   };
 
-  const InputRow = ({ icon: Icon, ...props }) => (
-    <div className="group relative">
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 opacity-0 blur-xl transition-opacity duration-300 group-focus-within:opacity-100" />
-      <div className="relative flex items-center rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-slate-100 focus-within:ring-2 focus-within:ring-cyan-400/40">
-        <Icon className="mr-2 h-4 w-4 text-slate-300" />
-        <input
-          {...props}
-          className="w-full bg-transparent outline-none placeholder:text-slate-400"
-        />
-      </div>
-    </div>
-  );
 
   return (
     <div
@@ -219,7 +221,7 @@ const AuthPage = () => {
             <InputRow
               icon={Mail}
               type="email"
-              placeholder="Email"
+              placeholder="E-mail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -238,7 +240,8 @@ const AuthPage = () => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-cyan-500 to-indigo-500 border-0 hover:from-cyan-400 hover:to-indigo-400"
+              variant="brand"
+              className="w-full"
               disabled={loading}
             >
               {loading ? "Obrada..." : mode === "signup" ? "Kreiraj nalog" : "Prijavi se"}
@@ -260,10 +263,11 @@ const AuthPage = () => {
             />
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-cyan-500 to-indigo-500 border-0 hover:from-cyan-400 hover:to-indigo-400"
+              variant="brand"
+              className="w-full"
               disabled={loading}
             >
-              {loading ? "Slanje..." : "Pošalji reset link"}
+              {loading ? "Slanje..." : "Pošalji link za promjenu"}
             </Button>
           </form>
         )}
@@ -288,7 +292,7 @@ const AuthPage = () => {
             disabled={loading}
           >
             <Chrome className="mr-2 h-4 w-4" />
-            Prijava putem Google
+            Prijava putem Google-a
           </Button>
         </div>
       </div>

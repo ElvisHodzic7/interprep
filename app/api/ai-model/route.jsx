@@ -9,23 +9,14 @@ function parseJSONSafe(text) {
   }
 }
 
-function fallbackQuestions({ lang = "bs", jobTitle = "", jobDescription = "", duration = "" }) {
-  const isEN = lang === "en";
-  const base = isEN
-    ? [
-        { question: "Tell us briefly about yourself.", type: "Experience" },
-        { question: `What interests you about the ${jobTitle || "role"}?`, type: "Behavioral" },
-        { question: "Describe a challenging problem you solved recently.", type: "Problem Solving" },
-        { question: "How do you ensure code quality and reliability?", type: "Technical" },
-        { question: "How do you collaborate with cross-functional teams?", type: "Leadership" },
-      ]
-    : [
-        { question: "Recite ukratko o sebi.", type: "Iskustvo" },
-        { question: `Šta vas motiviše za poziciju ${jobTitle || "ove uloge"}?`, type: "Behavioralni" },
-        { question: "Opišite izazovan problem koji ste nedavno riješili.", type: "Rješavanje problema" },
-        { question: "Kako osiguravate kvalitet i pouzdanost koda?", type: "Tehnički" },
-        { question: "Kako sarađujete s timovima iz drugih funkcija?", type: "Vođenje" },
-      ];
+function fallbackQuestions({ jobTitle = "", duration = "" }) {
+  const base = [
+    { question: "Recite ukratko o sebi.", type: "Iskustveni" },
+    { question: `Šta vas motiviše za poziciju ${jobTitle || "ove uloge"}?`, type: "Behavioralni" },
+    { question: "Opišite izazovan problem koji ste nedavno riješili.", type: "Rješavanje problema" },
+    { question: "Kako osiguravate kvalitet i pouzdanost svog rada?", type: "Tehnički" },
+    { question: "Kako sarađujete s timovima iz drugih odjela?", type: "Vođenje" },
+  ];
   const countMap = { "5 Min": 4, "15 Min": 6, "30 Min": 8, "45 Min": 10, "60 Min": 12 };
   const n = countMap[duration] || 6;
   const arr = [];
@@ -37,7 +28,6 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const {
-      lang = "bs",
       jobPosition = "",
       jobDescription = "",
       duration = "",
@@ -47,35 +37,25 @@ export async function POST(req) {
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Missing OPENROUTER_API_KEY" }), { status: 500 });
+      return new Response(JSON.stringify({ error: "Nedostaje OPENROUTER_API_KEY" }), { status: 500 });
     }
     const referer = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const typestr = Array.isArray(type) ? type.join(", ") : (type || "");
     const finalPrompt =
       prompt ||
-      (lang === "en"
-        ? `Generate interview questions in English as JSON:
-{ "interviewQuestions": [{"question":"...","type":"Technical|Behavioral|Experience|Problem Solving|Leadership"}] }
-Inputs:
-- Job Title: ${jobPosition}
-- Job Description: ${jobDescription}
-- Interview Duration: ${duration}
-- Interview Type: ${typestr}
-Return ONLY JSON.`
-        : `Generiši pitanja za intervju na bosanskom kao JSON:
-{ "interviewQuestions": [{"question":"...","type":"Tehnički|Behavioralni|Iskustvo|Rješavanje problema|Vođenje"}] }
+      `Generiši pitanja za intervju na bosanskom kao JSON:
+{ "interviewQuestions": [{"question":"...","type":"Tehnički|Behavioralni|Iskustveni|Rješavanje problema|Vođenje"}] }
 Ulazi:
 - Pozicija: ${jobPosition}
 - Opis posla: ${jobDescription}
 - Trajanje intervjua: ${duration}
 - Tip intervjua: ${typestr}
-Vrati ISKLJUČIVO JSON.`);
+Vrati ISKLJUČIVO JSON.`;
 
     const models = ["google/gemini-flash-1.5", "openai/gpt-4o-mini"];
 
     let text = "";
-    let lastErr = null;
 
     for (const model of models) {
       try {
@@ -96,9 +76,7 @@ Vrati ISKLJUČIVO JSON.`);
               {
                 role: "system",
                 content:
-                  lang === "en"
-                    ? "Reply ONLY valid JSON. No prose. English (US) only."
-                    : "Odgovaraj ISKLJUČIVO validnim JSON-om. Bez dodatnog teksta. Bosanski (latinica).",
+                  "Odgovaraj ISKLJUČIVO validnim JSON-om. Bez dodatnog teksta. Sav tekst mora biti na bosanskom jeziku (latinica).",
               },
               { role: "user", content: finalPrompt },
             ],
@@ -113,19 +91,13 @@ Vrati ISKLJUČIVO JSON.`);
         text = json?.choices?.[0]?.message?.content || "";
         if (text) break;
       } catch (e) {
-        lastErr = e;
+        console.warn(`ai-model: model ${model} nije uspio:`, e?.message);
       }
     }
 
-    if (!text) {
-      const fallback = { interviewQuestions: fallbackQuestions({ lang, jobTitle: jobPosition, jobDescription, duration }) };
-      return Response.json({ content: "```json\n" + JSON.stringify(fallback) + "\n```" });
-    }
-
-    let parsed = parseJSONSafe(text);
+    let parsed = text ? parseJSONSafe(text) : null;
     if (!parsed || !Array.isArray(parsed?.interviewQuestions)) {
-      const items = fallbackQuestions({ lang, jobTitle: jobPosition, jobDescription, duration });
-      parsed = { interviewQuestions: items };
+      parsed = { interviewQuestions: fallbackQuestions({ jobTitle: jobPosition, duration }) };
     }
 
     return Response.json({ content: "```json\n" + JSON.stringify(parsed) + "\n```" });

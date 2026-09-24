@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo } from 'react'
+import React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -10,81 +10,72 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { formatTranscript, getFeedback, getScore, getTranscript, scoreColor } from '@/lib/feedback'
+import { registrujFont } from '@/lib/pdfFont'
+import { FileDown } from 'lucide-react'
+import { toast } from 'sonner'
 
-// ⬇️ Helper: pokušaj na više path-ova; prilagodi ako znaš tačan
-const getTranscript = (candidate) => {
-  // najčešći slučajevi
-  return (
-    candidate?.feedback?.feedback?.transcript ||
-    candidate?.feedback?.transcript ||
-    candidate?.transcript ||
-    ''
-  );
-};
+const SKILLS = [
+  ['technicalSkills', 'Tehničke vještine'],
+  ['communication', 'Komunikacija'],
+  ['problemSolving', 'Rješavanje problema'],
+  ['experience', 'Iskustvo'],
+];
 
 function CandidateFeedbackDialog({ candidate }) {
-  const feedback = candidate?.feedback?.feedback;
+  const feedback = getFeedback(candidate);
   const ratings = feedback?.rating || {};
-  const {
-    totalRating = 0,
-    technicalSkills = 0,
-    communication = 0,
-    problemSolving = 0,
-    experience = 0,
-  } = ratings;
+  const score = getScore(candidate);
 
-  const ukupniRating = useMemo(() => {
-    const val = Number(totalRating) / 4;
-    return Number.isFinite(val) ? Number(val.toFixed(1)) : 0;
-  }, [totalRating]);
-
-  const summaries = Array.isArray(feedback?.summary) ? feedback.summary : [];
+  // summary može biti niz rečenica ili jedan string
+  const summaries = Array.isArray(feedback?.summary)
+    ? feedback.summary
+    : feedback?.summary ? [feedback.summary] : [];
   const recommended = feedback?.recommendation === true;
   const recommendationText = feedback?.recommendationMsg || (recommended ? 'Preporučuje se zapošljavanje.' : 'Ne preporučuje se zapošljavanje.');
-  const transcript = getTranscript(candidate);
+  const transcript = formatTranscript(getTranscript(candidate));
 
-  // ⬇️ Handler: export transkripta u PDF (dinamički import da izbjegnemo SSR)
+  // Export transkripta u PDF (dinamički import da izbjegnemo SSR)
   const handleDownloadTranscriptPDF = async () => {
     try {
       const { default: jsPDF } = await import('jspdf');
 
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      await registrujFont(doc);
       const marginX = 40;
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
       let y = 40;
 
-      // Header
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto', 'bold');
       doc.setFontSize(16);
       doc.text('Transkript razgovora', marginX, y); y += 22;
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('Roboto', 'normal');
       doc.setFontSize(11);
       if (candidate?.userName) { doc.text(`Kandidat: ${candidate.userName}`, marginX, y); y += 16; }
-      if (candidate?.userEmail) { doc.text(`Email: ${candidate.userEmail}`, marginX, y); y += 16; }
+      if (candidate?.userEmail) { doc.text(`E-mail: ${candidate.userEmail}`, marginX, y); y += 16; }
+      doc.text(`Rezultat: ${score}/10`, marginX, y); y += 16;
 
       y += 8;
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto', 'bold');
       doc.text('Sadržaj:', marginX, y); y += 16;
 
       // Normalizuj tekst (ako ima HTML tagova)
       const clean = String(transcript || '')
-        .replace(/<\/?[^>]+(>|$)/g, '') // skini HTML tagove
+        .replace(/<\/?[^>]+(>|$)/g, '')
         .replace(/\r\n/g, '\n')
         .replace(/\t/g, '  ');
 
-      // Koristi monospaced font za bolju čitljivost dijaloga (built-in 'courier')
-      doc.setFont('courier', 'normal');
+      doc.setFont('Roboto', 'normal');
       doc.setFontSize(10);
 
       const maxWidth = pageW - marginX * 2;
       const lines = doc.splitTextToSize(clean || 'Transkript nije dostupan.', maxWidth);
 
-      const lineHeight = 13; // pt
+      const lineHeight = 14;
       lines.forEach(line => {
-        // Ako nema mjesta za još jednu liniju — nova strana
         if (y > pageH - 60) {
           doc.addPage();
           y = 40;
@@ -97,92 +88,73 @@ function CandidateFeedbackDialog({ candidate }) {
       doc.save(`transkript-${fileSafeName}.pdf`);
     } catch (err) {
       console.error('Greška pri exportu transkripta u PDF:', err);
-      alert('Nisam uspio napraviti PDF transkripta. Provjeri konzolu za detalje.');
+      toast.error('Nije uspjelo kreiranje PDF-a transkripta.');
     }
   };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="text-primary">Vidi Izvještaj</Button>
+        <Button variant="outline" className="text-primary">Pogledaj izvještaj</Button>
       </DialogTrigger>
 
-      <DialogContent>
-        {/* ⬇️ Header sa dodatnim dugmetom za transkript */}
-        <DialogHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="flex-1">
-            <DialogTitle>Feedback</DialogTitle>
-            <DialogDescription asChild>
-              <div className='mt-5'>
-                <div className='flex justify-between items-center'>
-                  <div className='flex items-center gap-5'>
-                    <h2 className='bg-primary p-3 px-4 font-bold text-white rounded-full'>
-                      {candidate?.userName?.[0]?.toUpperCase() || '?'}
-                    </h2>
-                    <div>
-                      <h2 className='font-bold'>{candidate?.userName}</h2>
-                      <h2 className='text-sm text-gray-500'>{candidate?.userEmail}</h2>
-                    </div>
-                  </div>
-                  <div className='flex items-center gap-3'>
-                    <h2 className='text-primary text-2xl font-bold'>{ukupniRating}/10</h2>
-
-                    {/* Dugme: transkript u PDF */}
-                    <Button variant="secondary" onClick={handleDownloadTranscriptPDF}>
-                      Preuzmi transkript (PDF)
-                    </Button>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Izvještaj o kandidatu</DialogTitle>
+          <DialogDescription asChild>
+            <div className='mt-3 text-foreground'>
+              <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4'>
+                <div className='flex items-center gap-4'>
+                  <h2 className='bg-primary h-11 w-11 shrink-0 flex items-center justify-center font-bold text-white rounded-full'>
+                    {candidate?.userName?.[0]?.toUpperCase() || '?'}
+                  </h2>
+                  <div className='text-left'>
+                    <h2 className='font-bold'>{candidate?.userName}</h2>
+                    <h2 className='text-sm text-gray-500'>{candidate?.userEmail}</h2>
                   </div>
                 </div>
-
-                {/* ... ostatak tvog sadržaja: progress barovi, sažeci, preporuka ... */}
-                <div className='mt-5'>
-                  <h2 className='font-bold'>Recenzija vještina</h2>
-                  <div className='mt-3 grid grid-cols-2 gap-5'>
-                    <div>
-                      <h2 className='flex justify-between'>
-                        Tehničke vještine <span>{technicalSkills}/10</span>
-                      </h2>
-                      <Progress value={(Number(technicalSkills) || 0) * 10} className='mt-1' />
-                    </div>
-                    <div>
-                      <h2 className='flex justify-between'>
-                        Komunikacija <span>{communication}/10</span>
-                      </h2>
-                      <Progress value={(Number(communication) || 0) * 10} className='mt-1' />
-                    </div>
-                    <div>
-                      <h2 className='flex justify-between'>
-                        Rješavanje problema <span>{problemSolving}/10</span>
-                      </h2>
-                      <Progress value={(Number(problemSolving) || 0) * 10} className='mt-1' />
-                    </div>
-                    <div>
-                      <h2 className='flex justify-between'>
-                        Iskustvo <span>{experience}/10</span>
-                      </h2>
-                      <Progress value={(Number(experience) || 0) * 10} className='mt-1' />
-                    </div>
-                  </div>
-                </div>
-
-                <div className='mt-5'>
-                  <h2 className='font-bold'>Ukupni utisak</h2>
-                  <div className='p-5 bg-secondary my-3 rounded-md'>
-                    {summaries.length
-                      ? summaries.map((summary, i) => <p key={i}>{summary}</p>)
-                      : <p className='text-gray-600'>Nema dodatnih sažetaka.</p>}
-                  </div>
-                </div>
-
-                <div className={`p-5 mt-10 flex items-center justify-between rounded-md ${recommended ? 'bg-green-100' : 'bg-red-100'}`}>
-                  <div>
-                    <h2 className={`font-bold ${recommended ? 'text-green-700' : 'text-red-700'}`}>Preporuka:</h2>
-                    <p className={`${recommended ? 'text-green-600' : 'text-red-600'}`}>{recommendationText}</p>
-                  </div>
+                <div className='flex items-center gap-3'>
+                  <span className={`text-xl font-bold rounded-lg px-3 py-1 ${scoreColor(score)}`}>{score}/10</span>
+                  <Button variant="secondary" onClick={handleDownloadTranscriptPDF}>
+                    <FileDown className='h-4 w-4' /> Transkript (PDF)
+                  </Button>
                 </div>
               </div>
-            </DialogDescription>
-          </div>
+
+              <div className='mt-6'>
+                <h2 className='font-bold'>Ocjena vještina</h2>
+                <div className='mt-3 grid grid-cols-1 sm:grid-cols-2 gap-5'>
+                  {SKILLS.map(([key, label]) => {
+                    const value = Number(ratings[key]) || 0;
+                    return (
+                      <div key={key}>
+                        <h2 className='flex justify-between text-sm'>
+                          {label} <span className='font-medium'>{value}/10</span>
+                        </h2>
+                        <Progress value={value * 10} className='mt-1' />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className='mt-6'>
+                <h2 className='font-bold'>Ukupni utisak</h2>
+                <div className='p-4 bg-secondary my-3 rounded-md space-y-1 text-sm leading-6'>
+                  {summaries.length
+                    ? summaries.map((summary, i) => <p key={i}>{summary}</p>)
+                    : <p className='text-gray-600'>Nema dostupnog sažetka.</p>}
+                </div>
+              </div>
+
+              <div className={`p-4 mt-4 rounded-md ${recommended ? 'bg-green-100' : 'bg-red-100'}`}>
+                <h2 className={`font-bold ${recommended ? 'text-green-700' : 'text-red-700'}`}>
+                  Preporuka: {recommended ? 'Da' : 'Ne'}
+                </h2>
+                <p className={`text-sm ${recommended ? 'text-green-700' : 'text-red-700'}`}>{recommendationText}</p>
+              </div>
+            </div>
+          </DialogDescription>
         </DialogHeader>
       </DialogContent>
     </Dialog>

@@ -9,14 +9,17 @@ import { toast } from 'sonner';
 import InterviewLink from './_components/InterviewLink';
 import { useUser } from '@/app/provider';
 
+const STEPS = ['Detalji', 'Pitanja', 'Link'];
+
 function CreateInterview() {
   const router = useRouter();
   const { user } = useUser();
 
-  // default jezik + prazan niz za type
+  // jezik je uvijek bosanski; type je niz odabranih tipova
   const [formData, setFormData] = useState({ lang: 'bs', type: [] });
   const [step, setStep] = useState(1);
   const [interviewId, setInterviewId] = useState();
+  const [questionCount, setQuestionCount] = useState(0);
 
   const onHandleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -24,35 +27,45 @@ function CreateInterview() {
 
   const onGoToNext = () => {
     if (typeof user?.credits === 'number' && user.credits <= 0) {
-      toast('Molimo dopunite kredite');
+      toast.error('Nemate dovoljno kredita za kreiranje intervjua.');
       return;
     }
     if (
-      !formData?.jobPosition ||
-      !formData?.jobDescription ||
+      !formData?.jobPosition?.trim() ||
+      !formData?.jobDescription?.trim() ||
       !formData?.duration ||
-      !Array.isArray(formData?.type) || formData.type.length === 0 ||
-      !formData?.lang
+      !Array.isArray(formData?.type) || formData.type.length === 0
     ) {
-      toast('Molimo ispunite sva polja!');
+      toast.error('Molimo popunite sva polja i odaberite barem jedan tip intervjua.');
       return;
     }
     setStep(s => s + 1);
   };
 
-  const onCreateLink = (interview_id) => {
+  const onCreateLink = (interview_id, count) => {
     setInterviewId(interview_id);
+    setQuestionCount(count);
     setStep(s => s + 1);
   };
 
   return (
-    <div className='mt-5 px-10 md:px-24 lg:px-44 xl:px-56'>
+    <div className='mt-5 md:px-10 lg:px-24 xl:px-44'>
       <div className='flex gap-5 items-center'>
-        <ArrowLeft onClick={() => router.back()} className='cursor-pointer' />
+        <ArrowLeft onClick={() => router.back()} className='cursor-pointer' aria-label='Nazad' />
         <h2 className='font-bold text-2xl'>Kreiraj novi intervju</h2>
       </div>
 
-      <Progress value={step * 33.33} className='my-5' />
+      <div className='mt-5 flex justify-between text-sm'>
+        {STEPS.map((label, i) => (
+          <span
+            key={label}
+            className={i + 1 <= step ? 'font-medium text-primary' : 'text-gray-400'}
+          >
+            {i + 1}. {label}
+          </span>
+        ))}
+      </div>
+      <Progress value={(step / STEPS.length) * 100} className='mt-2 mb-5' />
 
       {step === 1 ? (
         <FormContainer
@@ -61,19 +74,12 @@ function CreateInterview() {
           GoToNext={onGoToNext}
         />
       ) : step === 2 ? (
-        <>
-         <QuestionList
-  formData={formData}
-  onCreateLink={onCreateLink}
-
-/>
-
-          {/* OBAVEZNO: prosljeđujemo korisnički email za Supabase INSERT */}
-        </>
+        <QuestionList formData={formData} onCreateLink={onCreateLink} />
       ) : step === 3 ? (
         <InterviewLink
           interview_id={interviewId}
           formData={formData}
+          questionCount={questionCount}
         />
       ) : null}
     </div>

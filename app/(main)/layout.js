@@ -5,7 +5,7 @@ const DashboardLayout = ({children}) => {
   return (
     <div>
     <DashboardProvider>
-    <div className='p-10'>
+    <div className='p-4 md:p-10'>
     {children}
     </div>
     

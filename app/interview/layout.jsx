@@ -7,7 +7,7 @@ function InterviewLayout({ children }) {
     const [interviewInfo, setInterviewInfo] = useState();
     return (
         <InterviewDataContext.Provider value={{ interviewInfo, setInterviewInfo }}>
-            <div className='bg-secondary'>
+            <div className='bg-secondary min-h-screen'>
                 <InterviewHeader />
                 {children}
             </div>

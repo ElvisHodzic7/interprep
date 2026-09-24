@@ -11,11 +11,16 @@ import { useUser } from "@/app/provider";
 import { v4 as uuidv4 } from "uuid";
 import { buildQuestionsPrompt } from "@/services/Constants";
 
+const FALLBACK_QUESTIONS = [
+  { question: "Recite ukratko o sebi.", type: "Iskustveni" },
+  { question: "Koje su ključne vještine za ovu poziciju?", type: "Tehnički" },
+];
+
 export default function QuestionList({ formData, onCreateLink }) {
   const [loading, setLoading] = useState(true);
   const [questionList, setQuestionList] = useState([]);
   const [saveLoading, setSaveLoading] = useState(false);
-  const { user } = useUser();
+  const { user, setUser } = useUser();
 
   useEffect(() => {
     if (formData) GenerateQuestionList();
@@ -32,8 +37,7 @@ export default function QuestionList({ formData, onCreateLink }) {
     try {
       const clean = maybeContent.replace(/```json/gi, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(clean);
-      const list = Array.isArray(parsed?.interviewQuestions) ? parsed.interviewQuestions : null;
-      return list;
+      return Array.isArray(parsed?.interviewQuestions) ? parsed.interviewQuestions : null;
     } catch (e) {
       console.warn("JSON parse failed, content:", maybeContent.slice(0, 200));
       return null;
@@ -44,28 +48,17 @@ export default function QuestionList({ formData, onCreateLink }) {
     setLoading(true);
     try {
       const prompt = buildQuestionsPrompt({
-        lang: formData.lang,
         jobTitle: formData.jobPosition,
         jobDescription: formData.jobDescription,
         duration: formData.duration,
         type: (Array.isArray(formData.type) ? formData.type : [formData.type]).join(", "),
       });
 
-      // Bitno: očekujemo JSON iz naše /api/ai-model rute
+      // Očekujemo JSON iz naše /api/ai-model rute
       const res = await axios.post("/api/ai-model", { ...formData, prompt }, { validateStatus: () => true });
 
-      // Ako server vrati HTML umjesto JSON-a, axios će i dalje dati .data (obj/tekst)
-      const raw =
-        typeof res.data === "string"
-          ? res.data // možda je HTML ili plain
-          : (res.data?.content ?? "");
-
-      let list = safeParseQuestions(raw);
-
-      // Ako nismo dobili validan JSON iz .content, probaj direktno parsirati res.data (ako je već JSON)
-      if (!list && typeof res.data === "object" && res.data?.content) {
-        list = safeParseQuestions(String(res.data.content));
-      }
+      const raw = typeof res.data === "string" ? res.data : (res.data?.content ?? "");
+      const list = safeParseQuestions(raw);
 
       if (!list || list.length === 0) {
         throw new Error("Prazan ili nevažeći JSON iz AI rute");
@@ -74,18 +67,8 @@ export default function QuestionList({ formData, onCreateLink }) {
       setQuestionList(list);
     } catch (e) {
       console.error("AI error:", e);
-      toast.error("Greška pri generisanju pitanja — prikazujem fallback.");
-      setQuestionList(
-        formData?.lang === "en"
-          ? [
-              { question: "Tell us briefly about yourself.", type: "Experience" },
-              { question: "Which skills are key for this role?", type: "Technical" },
-            ]
-          : [
-              { question: "Recite ukratko o sebi.", type: "Iskustvo" },
-              { question: "Koje su ključne vještine za ovu poziciju?", type: "Tehnički" },
-            ]
-      );
+      toast.error("Greška pri generisanju pitanja — prikazujem rezervna pitanja.");
+      setQuestionList(FALLBACK_QUESTIONS);
     } finally {
       setLoading(false);
     }
@@ -93,7 +76,7 @@ export default function QuestionList({ formData, onCreateLink }) {
 
   const onFinish = async () => {
     if (!user?.email) {
-      toast.error("Korisnik se još učitava, pokušaj ponovo.");
+      toast.error("Korisnik se još učitava, pokušajte ponovo.");
       return;
     }
     if (!questionList.length) {
@@ -103,8 +86,7 @@ export default function QuestionList({ formData, onCreateLink }) {
 
     setSaveLoading(true);
     try {
-      const interview_id = uuidv4(); // ✅ PRAVI UUID
-      console.log("[QL] generated interview_id =", interview_id);
+      const interview_id = uuidv4();
 
       const typeStr = Array.isArray(formData?.type)
         ? formData.type.join(", ")
@@ -116,8 +98,8 @@ export default function QuestionList({ formData, onCreateLink }) {
         jobDescription: formData?.jobDescription || null,
         duration: formData?.duration || null,
         type: typeStr,               // VARCHAR u DB
-        questionList: questionList,  // JSON u DB (ti imaš kolonu questionList json)
-        lang: formData?.lang || "bs",
+        questionList: questionList,  // JSON u DB
+        lang: "bs",
         interview_id,                // NOT NULL + UNIQUE
       };
 
@@ -127,37 +109,26 @@ export default function QuestionList({ formData, onCreateLink }) {
         .select("interview_id")
         .single();
 
-      console.log("[QL] insert result =", { data, error });
-
       if (error) {
         console.error("Supabase insert error:", error);
-        toast.error(error.message || "Greška pri spremanju u bazu.");
-        setSaveLoading(false);
+        toast.error("Greška pri spremanju intervjua u bazu.");
         return;
       }
 
-      // (opcionalno) umanji kredite
+      // umanji kredite (ako ih korisnik ima)
       if (typeof user?.credits === "number") {
         const { error: creditsErr } = await supabase
           .from("Users")
           .update({ credits: user.credits - 1 })
           .eq("email", user.email);
         if (creditsErr) console.warn("Credits update error:", creditsErr);
+        else setUser({ ...user, credits: user.credits - 1 });
       }
 
-      // safety: snimi i u sessionStorage (da InterviewLink ima fallback)
-      try {
-        window?.sessionStorage?.setItem("last_interview_id", data.interview_id);
-      } catch {}
-
-      console.log("[QL] onCreateLink with =", data.interview_id);
-      if (data.interview_id === "demo-id-123") {
-        console.error("DEMO ID DETECTED – stale code negdje postoji.");
-      }
-      onCreateLink(data.interview_id);
+      onCreateLink(data.interview_id, questionList.length);
     } catch (e) {
       console.error("Finish error:", e);
-      toast.error(e.message || "Greška pri spremanju.");
+      toast.error("Greška pri spremanju intervjua.");
     } finally {
       setSaveLoading(false);
     }
@@ -166,27 +137,25 @@ export default function QuestionList({ formData, onCreateLink }) {
   return (
     <div>
       {loading && (
-        <div className="p-5 bg-blue-50 rounded-xl border border-primary flex gap-5 items-center">
-          <Loader2Icon className="animate-spin" />
+        <div className="p-5 bg-primary/5 rounded-xl border border-primary/30 flex gap-5 items-center">
+          <Loader2Icon className="animate-spin text-primary" />
           <div>
-            <h2 className="font-medium">Generating Interview Questions</h2>
+            <h2 className="font-medium">Generišem pitanja za intervju…</h2>
             <p className="text-primary">
-              Our AI is crafting personalized questions based on your job position
+              AI kreira pitanja prilagođena poziciji i opisu posla.
             </p>
           </div>
         </div>
       )}
 
-      {!!questionList.length && (
-        <div>
-          <QuestionListContainer questionList={questionList} />
-        </div>
+      {!loading && !!questionList.length && (
+        <QuestionListContainer questionList={questionList} />
       )}
 
       <div className="flex justify-end mt-10">
-        <Button onClick={onFinish} disabled={saveLoading || !questionList.length}>
-          {saveLoading && <Loader2 className="animate-spin mr-2" />}
-          Create Interview Link & Finish
+        <Button onClick={onFinish} disabled={loading || saveLoading || !questionList.length}>
+          {saveLoading && <Loader2 className="animate-spin" />}
+          Kreiraj link i završi
         </Button>
       </div>
     </div>

@@ -1,51 +1,33 @@
 "use client"
 import { useUser } from '@/app/provider';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/services/supabaseClient';
-import { Video } from 'lucide-react';
 import React, { useEffect, useState } from 'react'
-import InterviewCard from '../dashboard/_components/InterviewCard';
+import InterviewGrid from '../dashboard/_components/InterviewGrid';
 
 function AllInterview() {
-    const [interviewList, setInterviewList] = useState([]);
+    const [interviewList, setInterviewList] = useState(null); // null dok se učitava
     const { user } = useUser();
-    const [loading, setLoading] = useState(false);
+
     useEffect(() => {
         user && GetInterviewList();
     }, [user])
 
     const GetInterviewList = async () => {
-        let { data: Interviews, error } = await supabase
+        const { data: Interviews, error } = await supabase
             .from('Interviews')
             .select('*')
             .eq('userEmail', user?.email)
             .order('id', { ascending: false })
 
-
-
-
-        setInterviewList(Interviews);
+        if (error) console.error('Greška pri učitavanju intervjua:', error);
+        setInterviewList(Interviews || []);
     }
-
-
 
     return (
         <div className='my-5'>
-            <h2 className='font-bold text-2xl'>Svi prethodno kreirani Interview-i</h2>
-
-            {interviewList?.length == 0 &&
-                <div className='p-5 flex flex-col gap-3 items-center bg-white rounded-xl mt-5 '>
-                    <Video className='h-10 w-10 text-primary' />
-                    <h2>Trenutno nema kreiranih Interview-a!</h2>
-                    <Button>+ Kreiraj novi Interview</Button>
-                </div>}
-            {interviewList &&
-                <div className='grid grid-cols-2 mt-5 xl:grid-cols-3 gap-5'>
-                    {interviewList.map((interview, index) => (
-                        <InterviewCard interview={interview} key={index} />
-                    ))}
-                </div>
-            }
+            <h2 className='font-bold text-2xl'>Svi intervjui</h2>
+            <p className='text-gray-500'>Svi intervjui koje ste kreirali. Kopirajte ili pošaljite link kandidatima.</p>
+            <InterviewGrid interviews={interviewList} />
         </div>
     )
 }

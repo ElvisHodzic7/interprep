@@ -50,7 +50,7 @@ export default function Landing() {
                        border border-white/15 bg-white/5 hover:bg-white/10
                        px-6 py-3 font-semibold text-slate-100"
           >
-            Uđi na Dashboard
+            Uđi u aplikaciju
           </Link>
         </div>
 

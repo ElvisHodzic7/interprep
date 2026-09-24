@@ -1,7 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   Select,
   SelectContent,
@@ -11,34 +11,30 @@ import {
 } from "@/components/ui/select";
 import { InterviewType } from "@/services/Constants";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+
+const DURATIONS = ["5 Min", "15 Min", "30 Min", "45 Min", "60 Min"];
 
 function FormContainer({ onHandleInputChange, GoToNext, formData = {} }) {
-  const [interviewType, setInterviewType] = useState([]);
+  const selectedTypes = Array.isArray(formData.type) ? formData.type : [];
 
-  useEffect(() => {
-    if (interviewType) {
-      onHandleInputChange("type", interviewType);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewType]);
-
-  const AddInterviewType = (type) => {
-    const exists = interviewType.includes(type);
-    if (!exists) {
-      setInterviewType((prev) => [...prev, type]);
-    } else {
-      setInterviewType(interviewType.filter((item) => item !== type));
-    }
+  const toggleInterviewType = (type) => {
+    onHandleInputChange(
+      "type",
+      selectedTypes.includes(type)
+        ? selectedTypes.filter((item) => item !== type)
+        : [...selectedTypes, type]
+    );
   };
 
   return (
-    <div className="p-5 bg-white rounded-xl">
+    <div className="p-5 md:p-7 bg-white border rounded-xl">
       {/* Pozicija */}
       <div>
-        <h2 className="text-sm font-medium">Pozicija</h2>
+        <label htmlFor="jobPosition" className="text-sm font-medium">Pozicija</label>
         <Input
-          placeholder="primjer: Full Stack Developer"
+          id="jobPosition"
+          placeholder="npr. Full Stack Developer"
           className="mt-2"
           onChange={(e) => onHandleInputChange("jobPosition", e.target.value)}
           defaultValue={formData.jobPosition || ""}
@@ -47,30 +43,14 @@ function FormContainer({ onHandleInputChange, GoToNext, formData = {} }) {
 
       {/* Opis posla */}
       <div className="mt-5">
-        <h2 className="text-sm font-medium">Opis posla</h2>
+        <label htmlFor="jobDescription" className="text-sm font-medium">Opis posla</label>
         <Textarea
-          placeholder="Unesi opis posla"
+          id="jobDescription"
+          placeholder="Opišite odgovornosti, potrebne vještine i iskustvo…"
           className="h-[200px] mt-2"
           onChange={(e) => onHandleInputChange("jobDescription", e.target.value)}
           defaultValue={formData.jobDescription || ""}
         />
-      </div>
-
-      {/* Jezik intervjua (NOVO) */}
-      <div className="mt-5">
-        <h2 className="text-sm font-medium">Jezik intervjua</h2>
-        <Select
-          value={formData.lang ?? "bs"}
-          onValueChange={(value) => onHandleInputChange("lang", value)}
-        >
-          <SelectTrigger className="w-full mt-2">
-            <SelectValue placeholder="Odaberi jezik" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="bs">Bosanski</SelectItem>
-            <SelectItem value="en">English</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Trajanje */}
@@ -81,14 +61,12 @@ function FormContainer({ onHandleInputChange, GoToNext, formData = {} }) {
           onValueChange={(value) => onHandleInputChange("duration", value)}
         >
           <SelectTrigger className="w-full mt-2">
-            <SelectValue placeholder="Odaberi trajanje intervjua" />
+            <SelectValue placeholder="Odaberite trajanje intervjua" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="5 Min">5 Min</SelectItem>
-            <SelectItem value="15 Min">15 Min</SelectItem>
-            <SelectItem value="30 Min">30 Min</SelectItem>
-            <SelectItem value="45 Min">45 Min</SelectItem>
-            <SelectItem value="60 Min">60 Min</SelectItem>
+            {DURATIONS.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -96,26 +74,34 @@ function FormContainer({ onHandleInputChange, GoToNext, formData = {} }) {
       {/* Tip intervjua */}
       <div className="mt-5">
         <h2 className="text-sm font-medium">Tip intervjua</h2>
+        <p className="text-xs text-gray-500">Možete odabrati više tipova.</p>
         <div className="flex gap-3 flex-wrap mt-2">
-          {InterviewType.map((type, index) => (
-            <div
-              key={index}
-              className={`flex items-center cursor-pointer gap-2 p-1 px-4 bg-white border border-gray-300 rounded-2xl hover:bg-secondary ${
-                interviewType.includes(type.title) && "bg-blue-100 text-primary"
-              }`}
-              onClick={() => AddInterviewType(type.title)}
-            >
-              <type.icon className="h-4 w-4" />
-              <span>{type.title}</span>
-            </div>
-          ))}
+          {InterviewType.map((type) => {
+            const selected = selectedTypes.includes(type.title);
+            return (
+              <button
+                type="button"
+                key={type.title}
+                aria-pressed={selected}
+                className={`flex items-center cursor-pointer gap-2 py-1.5 px-4 border rounded-2xl transition ${
+                  selected
+                    ? "bg-primary/10 border-primary text-primary font-medium"
+                    : "bg-white border-gray-300 hover:bg-secondary"
+                }`}
+                onClick={() => toggleInterviewType(type.title)}
+              >
+                {selected ? <Check className="h-4 w-4" /> : <type.icon className="h-4 w-4" />}
+                <span>{type.title}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Next */}
-      <div className="mt-7 flex justify-end" onClick={GoToNext}>
-        <Button>
-          Generiši pitanja <ArrowRight className="ml-2 h-4 w-4" />
+      {/* Dalje */}
+      <div className="mt-7 flex justify-end">
+        <Button onClick={GoToNext}>
+          Generiši pitanja <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

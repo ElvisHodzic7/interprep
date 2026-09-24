@@ -2,16 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Clock, Copy, List, Mail, Plus } from 'lucide-react';
-import Image from 'next/image';
+import { ArrowLeft, CheckCircle2, Clock, Copy, List, Mail, MessageCircle, Plus } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-function InterviewLink({ interview_id, formData, questionCount = 10 }) {
+function InterviewLink({ interview_id, formData, questionCount = 0 }) {
   const [baseUrl, setBaseUrl] = useState('');
 
-  // Odredi pouzdan base URL u browseru; fallback na env ako treba (npr. Vercel Preview)
+  // Base URL iz browsera; fallback na env ako treba
   useEffect(() => {
     const origin =
       typeof window !== 'undefined' && window.location?.origin
@@ -20,21 +19,32 @@ function InterviewLink({ interview_id, formData, questionCount = 10 }) {
     setBaseUrl(origin);
   }, []);
 
-  // Ispravan share URL: /interview/[id]
+  // Share URL: /interview/[id]
   const url = useMemo(() => {
     if (!interview_id || !baseUrl) return '';
     return `${baseUrl}/interview/${interview_id}`;
   }, [baseUrl, interview_id]);
 
+  const poruka = `Pozdrav! Pozivamo vas na AI intervju za poziciju ${formData?.jobPosition || ''}. Intervju možete započeti ovdje: ${url}`;
+
   const onCopyLink = async () => {
     try {
       if (!url) return;
       await navigator.clipboard.writeText(url);
-      toast.success('Link kopiran!');
+      toast.success('Link je kopiran!');
     } catch (e) {
-      toast.error('Nisam uspio kopirati link.');
+      toast.error('Kopiranje linka nije uspjelo.');
       console.error(e);
     }
+  };
+
+  const onShareEmail = () => {
+    const subject = `Poziv na AI intervju – ${formData?.jobPosition || 'InterPrep'}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(poruka)}`;
+  };
+
+  const onShareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(poruka)}`, '_blank', 'noopener,noreferrer');
   };
 
   if (!interview_id) {
@@ -47,30 +57,19 @@ function InterviewLink({ interview_id, formData, questionCount = 10 }) {
 
   return (
     <div className="flex items-center justify-center flex-col mt-10">
-      <div>
-        <Image
-          src={'/check.png'}
-          alt="check"
-          width={200}
-          height={200}
-          className="w-[50px] h-[50px]"
-        />
-      </div>
+      <CheckCircle2 className="h-14 w-14 text-green-500" />
 
-      <h2 className="font-bold text-lg mt-4">Your AI Interview is Ready!</h2>
-      <p className="mt-3">Share this link with your candidates to start the interview process</p>
+      <h2 className="font-bold text-lg mt-4">Vaš AI intervju je spreman!</h2>
+      <p className="mt-2 text-gray-500 text-center">Podijelite ovaj link s kandidatima da započnu intervju.</p>
 
-      <div className="w-full p-7 mt-6 rounded-lg bg-white">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold">Interview Link</h2>
-          <h2 className="p-1 px-2 text-primary bg-blue-50 rounded-4xl">Valid for 30 Days</h2>
-        </div>
+      <div className="w-full p-7 mt-6 rounded-xl border bg-white">
+        <h2 className="font-bold">Link za intervju</h2>
 
-        <div className="mt-3 flex gap-3 items-center">
+        <div className="mt-3 flex flex-col sm:flex-row gap-3 sm:items-center">
           <Input value={url} readOnly />
           <Button onClick={onCopyLink}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy Link
+            <Copy className="h-4 w-4" />
+            Kopiraj link
           </Button>
         </div>
 
@@ -83,43 +82,40 @@ function InterviewLink({ interview_id, formData, questionCount = 10 }) {
           </h2>
           <h2 className="text-sm text-gray-500 flex gap-2 items-center">
             <List className="h-4 w-4" />
-            {questionCount} Questions
+            {questionCount} {questionCount % 10 === 1 && questionCount % 100 !== 11 ? 'pitanje' : 'pitanja'}
           </h2>
         </div>
       </div>
 
-      <div className="mt-7 bg-white p-5 rounded-lg w-full">
-        <h2 className="font-bold">Share Via</h2>
-        <div className="flex gap-7 mt-2 justify-around">
-          <Button variant="outline">
-            <Mail className="mr-2 h-4 w-4" />
-            Slack
+      <div className="mt-7 bg-white border p-5 rounded-xl w-full">
+        <h2 className="font-bold">Podijeli putem</h2>
+        <div className="flex flex-col sm:flex-row gap-3 mt-3">
+          <Button variant="outline" className="flex-1" onClick={onShareEmail}>
+            <Mail className="h-4 w-4" />
+            E-mail
           </Button>
-          <Button variant="outline">
-            <Mail className="mr-2 h-4 w-4" />
-            Email
-          </Button>
-          <Button variant="outline">
-            <Mail className="mr-2 h-4 w-4" />
-            Whatsapp
+          <Button variant="outline" className="flex-1" onClick={onShareWhatsApp}>
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
           </Button>
         </div>
       </div>
 
       <div className="flex w-full gap-5 justify-between mt-6">
-        <Link href="/dashboard">
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Button>
-        </Link>
+        <Button asChild variant="outline">
+          <Link href="/dashboard">
+            <ArrowLeft className="h-4 w-4" />
+            Nazad na početnu
+          </Link>
+        </Button>
 
-        <Link href="/dashboard/kreiraj-interview">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Interview
-          </Button>
-        </Link>
+        <Button asChild>
+          {/* obični <a> da se forma resetuje (ista ruta) */}
+          <a href="/dashboard/kreiraj-interview">
+            <Plus className="h-4 w-4" />
+            Kreiraj novi intervju
+          </a>
+        </Button>
       </div>
     </div>
   );

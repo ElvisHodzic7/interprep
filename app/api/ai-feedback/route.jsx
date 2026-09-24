@@ -10,10 +10,10 @@ export async function POST(req) {
     let conversation = typeof body?.conversation === 'string' ? body.conversation : '';
 
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
+      return NextResponse.json({ error: 'Nedostaje OPENAI_API_KEY' }, { status: 500 });
     }
     if (!conversation) {
-      return NextResponse.json({ error: 'Missing conversation' }, { status: 400 });
+      return NextResponse.json({ error: 'Nedostaje razgovor' }, { status: 400 });
     }
 
     // Ako je OGROMNO, skrati: uzmi zadnjih ~120k znakova (cca 10–15k tokena “grubo”)
@@ -37,13 +37,12 @@ Given the interview conversation below, produce a JSON summary with this shape:
   },
   "summary": [string, string, ...],
   "recommendation": boolean,
-  "recommendationMsg": string,
-  "transcript": string
+  "recommendationMsg": string
 }
 Rules:
 - Numbers 0..10
 - totalRating = sum of the 4 categories
-- transcript is the raw conversation text (trimmed)
+- "summary" (2-3 short sentences) and "recommendationMsg" (one sentence) MUST be written in Bosnian (Latin script). Do not use English.
 - Return ONLY valid JSON, no markdown, no backticks.
 
 Conversation:
@@ -63,12 +62,12 @@ ${conversation}
 
     if (!content) {
       // Vraćamo 502 sa objašnjenjem umjesto generičkog 500
-      return NextResponse.json({ error: 'OpenAI returned empty content' }, { status: 502 });
+      return NextResponse.json({ error: 'AI je vratio prazan odgovor' }, { status: 502 });
     }
 
     return NextResponse.json({ content });
   } catch (e) {
     console.error('/api/ai-feedback error:', e?.stack || e);
-    return NextResponse.json({ error: e?.message || 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: e?.message || 'Greška na serveru' }, { status: 500 });
   }
 }

@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 
 export const SideBarOptions = [
-  { name: "Početna Stranica", icon: LayoutDashboard, path: "/dashboard" },
-  { name: "Zakazani Interview", icon: Calendar, path: "/zakazani-interviewi" },
-  { name: "Svi Interview-i", icon: List, path: "/svi-interviewi" },
+  { name: "Početna", icon: LayoutDashboard, path: "/dashboard" },
+  { name: "Rezultati kandidata", icon: Calendar, path: "/zakazani-interviewi" },
+  { name: "Svi intervjui", icon: List, path: "/svi-interviewi" },
   // { name: "Plaćanje", icon: WalletCards, path: "/billing" },
   { name: "Postavke", icon: Settings, path: "/postavke" }
 ];
@@ -28,11 +28,9 @@ export const InterviewType = [
   { title: "Vođenje", icon: Component }
 ];
 
-/* -------------------- JEZIČKA PRAVILA -------------------- */
-const LANG_RULE = {
-  bs: `VAŽNO: Sva pitanja/tekst moraju biti ISKLJUČIVO na bosanskom jeziku (latinica). Nemoj koristiti engleski niti miješati jezike.`,
-  en: `IMPORTANT: All questions/text MUST be strictly in English (US). Do not use Bosnian or mix languages.`
-};
+/* -------------------- JEZIČKO PRAVILO -------------------- */
+// Aplikacija radi isključivo na bosanskom jeziku
+export const LANG_RULE = `VAŽNO: Sav tekst mora biti ISKLJUČIVO na bosanskom jeziku (latinica). Nemoj koristiti engleski niti miješati jezike.`;
 
 /* mala util funkcija za popunu {{var}} mjesta */
 const fill = (tpl, data) =>
@@ -61,7 +59,7 @@ Output format (JSON):
 interviewQuestions = [
   {
     "question": "",
-    "type": "Technical | Behavioral | Experience | Problem Solving | Leadership"
+    "type": "Tehnički | Behavioralni | Iskustveni | Rješavanje problema | Vođenje"
   }
 ]
 Return ONLY valid JSON (no markdown fences).`;
@@ -99,16 +97,14 @@ Output format (JSON only):
 Return ONLY valid JSON (no markdown fences).`;
 
 /* -------------------- PUBLIC BUILDER FUNKCIJE -------------------- */
-/** Lang je 'bs' ili 'en'. jobTitle/jobDescription/duration/type – iz tvoje forme */
-export function buildQuestionsPrompt({ lang = "bs", jobTitle, jobDescription, duration, type }) {
-  const header = LANG_RULE[lang] ?? LANG_RULE.bs;
+/** jobTitle/jobDescription/duration/type – iz forme */
+export function buildQuestionsPrompt({ jobTitle, jobDescription, duration, type }) {
   const body = fill(QUESTIONS_PROMPT_BASE, { jobTitle, jobDescription, duration, type });
-  return `${header}\n\n${body}`;
+  return `${LANG_RULE}\n\n${body}`;
 }
 
-/** Lang je 'bs' ili 'en'. conversation = transkript string */
-export function buildFeedbackPrompt({ lang = "bs", conversation }) {
-  const header = LANG_RULE[lang] ?? LANG_RULE.bs;
+/** conversation = transkript string */
+export function buildFeedbackPrompt({ conversation }) {
   const body = fill(FEEDBACK_PROMPT_BASE, { conversation });
-  return `${header}\n\n${body}`;
+  return `${LANG_RULE}\n\n${body}`;
 }
